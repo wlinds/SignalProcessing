@@ -1,3 +1,14 @@
+*
+
+*DS_Store
+*.psd
+/bin*
+/share*
+/lib*
+/include*
+ITHS.md
+mall.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
