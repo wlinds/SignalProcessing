@@ -1,0 +1,9 @@
+ipykernel
+matplotlib
+librosa
+tensorflow
+pandas
+plotly
+sounddevice
+PyQt5
+pyqtgraph
