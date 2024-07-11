@@ -14,16 +14,19 @@ class Goniometer:
         self.chunk_size = chunk_size
         self.data, self.sr = librosa.load(file_path, sr=None, mono=False)
         self.L, self.R = self.data[0, :], self.data[1, :]
+        self.L = self.L / np.max(np.abs(self.L))
+        self.R = self.R / np.max(np.abs(self.R))
         self.index = 0
         self.plot_event = threading.Event()
         self.fig, self.ax = plt.subplots()
-        self.line, = self.ax.plot([], [], lw=2)
-        self.ax.set_xlim(-1.1, 1.1)
-        self.ax.set_ylim(-1.1, 1.1)
-        self.ax.set_xlabel('Left Channel')
-        self.ax.set_ylabel('Right Channel')
-        self.ax.set_title('Real-time Goniometer (Lissajous Curve)')
-        self.ax.grid(True)
+        self.ax.set_xlim(-1.5, 1.5)
+        self.ax.set_ylim(-1.5, 1.5)
+
+        self.line, = self.ax.plot([], [], lw=2, color='#800ced')
+        self.ax.set_title(f'{file_path}', color='#bdbdbd')
+        self.ax.grid(True, color='#181818')
+        self.fig.patch.set_facecolor('#000000')
+        self.ax.set_facecolor('#000000')
 
         self.ani = FuncAnimation(self.fig, self.update, init_func=self.init, blit=True, interval=self.chunk_size / self.sr * 1000)
 
@@ -59,9 +62,13 @@ class Goniometer:
     def update(self, frame):
         start = self.index
         end = start + self.chunk_size
-        x = self.L[start:end] / np.max(np.abs(self.L))
-        y = self.R[start:end] / np.max(np.abs(self.R))
-        self.line.set_data(x, y)
+        x = self.L[start:end]
+        y = self.R[start:end]
+        
+        if len(x) > 0 and len(y) > 0:
+            rotated_x = (x - y) / np.sqrt(2)
+            rotated_y = (x + y) / np.sqrt(2)
+            self.line.set_data(rotated_x, rotated_y)
         return self.line,
 
     def show(self):
