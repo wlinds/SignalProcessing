@@ -1,9 +1,14 @@
+import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import threading
 import librosa
 import sounddevice as sd
+
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
 
 # https://python-sounddevice.readthedocs.io/en/0.3.12/api.html
 # https://matplotlib.org/stable/api/_as_gen/matplotlib.animation.FuncAnimation.html
@@ -18,11 +23,13 @@ class Goniometer:
         self.R = self.R / np.max(np.abs(self.R))
         self.index = 0
         self.plot_event = threading.Event()
+        self.is_paused = False
+
         self.fig, self.ax = plt.subplots()
         self.ax.set_xlim(-1.5, 1.5)
         self.ax.set_ylim(-1.5, 1.5)
 
-        self.line, = self.ax.plot([], [], lw=2, color='#800ced')
+        self.line, = self.ax.plot([], [], lw=0.5, color='#800ced')
         self.ax.set_title(f'{file_path}', color='#bdbdbd')
         self.ax.grid(True, color='#181818')
         self.fig.patch.set_facecolor('#000000')
@@ -33,17 +40,23 @@ class Goniometer:
         self.audio_thread = threading.Thread(target=self.play_audio)
         self.audio_thread.start()
 
-    # Synchronize visualization with audio
     def audio_callback(self, outdata, frames, time, status):
         if status:
             print(status)
+        
+        if self.is_paused:
+            outdata[:] = np.zeros((frames, 2))
+            return
+        
         start = self.index
         end = start + frames
         chunk = self.L[start:end], self.R[start:end]
+
         if len(chunk[0]) < frames:
             outdata[:len(chunk[0])] = np.stack(chunk, axis=-1)
             outdata[len(chunk[0]):] = 0
             raise sd.CallbackStop
+
         outdata[:] = np.stack(chunk, axis=-1)
         self.index += frames
         self.plot_event.set()
@@ -75,8 +88,36 @@ class Goniometer:
         plt.show()
         self.audio_thread.join()
 
+    def toggle_play_pause(self):
+        self.is_paused = not self.is_paused
+
+class GUI(QMainWindow):
+    def __init__(self, goniometer):
+        super().__init__()
+        self.goniometer = goniometer
+
+        self.canvas = FigureCanvas(self.goniometer.fig)
+        self.play_button = QPushButton("⏯️")
+        self.play_button.clicked.connect(self.goniometer.toggle_play_pause)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.canvas)
+        layout.addWidget(self.play_button)
+
+        container = QWidget()
+        container.setLayout(layout)
+        self.setCentralWidget(container)
+
 
 if __name__ == "__main__":
-    file_path = 'data/wav-loops/its_0_drum_full_loop.wav'
+    file_path = 'data/renders/example_3.wav'
     goniometer = Goniometer(file_path)
+    
+    app = QApplication(sys.argv)
+    gui = GUI(goniometer)
+    gui.show()
+
+    gui_thread = threading.Thread(target=app.exec_)
+    gui_thread.start()
+
     goniometer.show()
