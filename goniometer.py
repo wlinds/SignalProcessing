@@ -30,7 +30,7 @@ class Goniometer:
         self.ax.set_ylim(-1.5, 1.5)
 
         self.line, = self.ax.plot([], [], lw=0.5, color='#800ced')
-        self.ax.set_title(f'{file_path}', color='#bdbdbd')
+        # self.ax.set_title(f'{file_path}', color='#bdbdbd')
         self.ax.grid(True, color='#181818')
         self.fig.patch.set_facecolor('#000000')
         self.ax.set_facecolor('#000000')
@@ -55,7 +55,10 @@ class Goniometer:
         if len(chunk[0]) < frames:
             outdata[:len(chunk[0])] = np.stack(chunk, axis=-1)
             outdata[len(chunk[0]):] = 0
-            raise sd.CallbackStop
+            self.index = 0
+            self.is_paused = True
+            return
+            # raise sd.CallbackStop
 
         outdata[:] = np.stack(chunk, axis=-1)
         self.index += frames
@@ -89,7 +92,10 @@ class Goniometer:
         self.audio_thread.join()
 
     def toggle_play_pause(self):
+        if self.index == 0 and self.is_paused:
+            self.index = 0
         self.is_paused = not self.is_paused
+
 
 class GUI(QMainWindow):
     def __init__(self, goniometer):
@@ -120,4 +126,4 @@ if __name__ == "__main__":
     gui_thread = threading.Thread(target=app.exec_)
     gui_thread.start()
 
-    goniometer.show()
+    sys.exit(app.exec_())
