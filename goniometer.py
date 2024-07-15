@@ -6,9 +6,11 @@ import threading
 import librosa
 import sounddevice as sd
 
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QLabel, QHBoxLayout
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFont
 
 # https://python-sounddevice.readthedocs.io/en/0.3.12/api.html
 # https://matplotlib.org/stable/api/_as_gen/matplotlib.animation.FuncAnimation.html
@@ -96,6 +98,26 @@ class Goniometer:
             self.index = 0
         self.is_paused = not self.is_paused
 
+    def previous_frame(self):
+        self.index = max(self.index - self.chunk_size, 0)
+        self.plot_event.set()
+
+    def next_frame(self):
+        self.index = min(self.index + self.chunk_size, len(self.L))
+        self.plot_event.set()
+
+    def get_current_frame(self):
+        return self.index // self.chunk_size
+
+    def get_total_frames(self):
+        return len(self.L) // self.chunk_size
+
+    def get_current_time(self):
+        return self.index / self.sr
+
+    def get_total_time(self):
+        return len(self.L) / self.sr
+
 
 class GUI(QMainWindow):
     def __init__(self, goniometer):
@@ -106,13 +128,48 @@ class GUI(QMainWindow):
         self.play_button = QPushButton("⏯️")
         self.play_button.clicked.connect(self.goniometer.toggle_play_pause)
 
+        self.frame_label = QLabel()
+        self.time_label = QLabel()
+
         layout = QVBoxLayout()
         layout.addWidget(self.canvas)
         layout.addWidget(self.play_button)
 
+        info_layout = QHBoxLayout()
+        info_layout.addWidget(self.frame_label)
+        info_layout.addWidget(self.time_label)
+        layout.addLayout(info_layout)
+
+        self.frame_label.setFont(QFont("Courier", 10))
+        self.time_label.setFont(QFont("Courier", 10))
+
         container = QWidget()
         container.setLayout(layout)
         self.setCentralWidget(container)
+
+        self.update_info()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_info)
+        self.timer.start(100)
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Space:
+            self.goniometer.toggle_play_pause()
+        elif event.key() == Qt.Key_Left:
+            self.goniometer.previous_frame()
+        elif event.key() == Qt.Key_Right:
+            self.goniometer.next_frame()
+        else:
+            super().keyPressEvent(event)
+    
+    def update_info(self):
+        current_frame = self.goniometer.get_current_frame()
+        total_frames = self.goniometer.get_total_frames()
+        current_time = self.goniometer.get_current_time()
+        total_time = self.goniometer.get_total_time()
+
+        self.frame_label.setText(f"Frame: {current_frame}/{total_frames}")
+        self.time_label.setText(f"Time: {current_time:.2f}/{total_time:.2f} s")
 
 
 if __name__ == "__main__":
