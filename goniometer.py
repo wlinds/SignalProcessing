@@ -73,6 +73,12 @@ class Goniometer:
                 self.plot_event.wait()
                 self.plot_event.clear()
 
+    def play_frame_chunk(self):
+        start = self.index
+        end = start + self.chunk_size * 4 # Adjusted for audibility
+        chunk = np.stack((self.L[start:end], self.R[start:end]), axis=-1)
+        sd.play(chunk, samplerate=self.sr)
+
     def init(self):
         self.line.set_data([], [])
         return self.line,
@@ -101,10 +107,12 @@ class Goniometer:
     def previous_frame(self):
         self.index = max(self.index - self.chunk_size, 0)
         self.plot_event.set()
+        self.play_frame_chunk()
 
     def next_frame(self):
         self.index = min(self.index + self.chunk_size, len(self.L))
         self.plot_event.set()
+        self.play_frame_chunk()
 
     def get_current_frame(self):
         return self.index // self.chunk_size
